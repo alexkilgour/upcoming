@@ -1,0 +1,156 @@
+#!/usr/bin/env python
+# -*- coding=utf-8 -*-
+# 
+# Copyright © 2013 Alex Kilgour (alex at kil dot gr)
+#
+# This work is free. You can redistribute it and/or modify it under the
+# terms of the Do What The Fuck You Want To Public License, Version 2,
+# as published by Sam Hocevar. See the licence.txt file for more details.
+
+from bs4 import BeautifulSoup
+import prettytable
+import urllib2
+import re
+import datetime
+import sys
+
+# ===============================================================
+# functions
+# ===============================================================
+
+# return position of the team in this years table
+def pos(fixture, teams):
+	for key, value in allteams.items():
+		if str(allteams[key][0]) == fixture:
+			current = str(key)
+			previous = allteams[key][2]
+			return [current, previous]
+
+	return ['0', '0']
+
+# generate team details map
+def createTeams():
+	fullTable = urllib2.urlopen('http://www.premierleague.com/en-gb/matchday/league-table.html')
+	fullTableSoup = BeautifulSoup(fullTable)
+	fullTableSoup.prettify()
+	
+	allteams = fullTableSoup.find('table', 'leagueTable')
+	teamslist = {}
+	count = 0
+	for row in allteams.findAll('tr', 'club-row'):
+		count = count + 1
+		
+		team = row['name'] # get hyphenated name
+		name = re.sub('-', ' ', team)
+		name = name.title() # short name
+		
+		url = str('http://www.premierleague.com/en-gb/clubs/profile.overview.html/' + team)
+
+		pos = int(row.find('td', 'col-pos').contents[0].string)
+		if pos == 0:
+			pos = count
+		
+		# find last seasons finishing position
+		dropdown = fullTableSoup.find('select', { 'id' : 'season' })
+		currentSeason = dropdown.find('option', { 'selected' : 'selected' })['value']
+		a,b = currentSeason.split("-")
+		a = int(a) - 1
+		b = int(b) - 1
+		lastSeason = str(a) + '-' + str(b)
+
+		prevTable = urllib2.urlopen('http://www.premierleague.com/en-gb/matchday/league-table.html?season=' + lastSeason + '&month=MAY&timelineView=date&toDate=1368918000000&tableView=CURRENT_STANDINGS')
+		prevTableSoup = BeautifulSoup(prevTable)
+		prevTableSoup.prettify()
+
+		table = prevTableSoup.find('table', 'leagueTable')
+		prevPos = '20'
+		for row in table.findAll('tr', 'club-row'):
+			club = row['name']
+			if club == team:
+				prevPos = row.find('td', 'col-pos').contents[0].string
+		
+		# add to map
+		teamslist[pos] = [name, url, prevPos, team]
+
+	return teamslist
+
+# ===============================================================
+# check the arguments
+# ===============================================================	
+
+# the program name and the (optional) number of fixtures
+if len(sys.argv) > 2:
+	# stop the program and print an error message
+	print "This only accepts an (optional) number as an argument, to say how many fixtures to show (default 3, max 6)"
+	sys.exit("Example: 'upcoming' or 'upcoming 5'")
+
+# grab the argument, exit if invalid
+if len(sys.argv) == 2:
+	num = sys.argv[1]
+	if num.isdigit():
+		num = int(num)
+		if num > 6:
+			num = 6
+	else:
+		sys.exit("Argument is not a number (positive and 0 decimal places). Should be in the format: 'upcoming' or 'upcoming 5'")
+else:
+	num = 3
+
+# ===============================================================
+# generate
+# ===============================================================
+
+# start generation
+print 'Loading Fixtures ...' 
+
+# pull out all teams and associated urls
+allteams = createTeams()
+
+# create a table
+headings = ['Team']
+for i in range(num):
+	headings.append('Fixture ' + str(i+1))
+
+table = prettytable.PrettyTable(headings)
+table.align["Team"] = "r"
+table.padding_width = 1
+
+# iterate over the teams
+for key, value in allteams.items():
+	# get the page for each team name
+	url = allteams[key][1]
+	teamPage = urllib2.urlopen(url)
+	teamPageSoup = BeautifulSoup(teamPage)
+	teamPageSoup.prettify()
+
+	# get the full club name
+	# could also use 'allteams[key][0]' for the short version
+	name = teamPageSoup.find('h1', 'seo').contents[0].string
+	name = re.sub('^Club Profile - ', '', name)
+
+	# pull out all the fixtures
+	section = teamPageSoup.find('div', 'clubresults')
+	column = section.find('div', 'contentRight')
+
+	fixtures = []
+	fixtures.append(name) # add the team name
+	count = 0
+	for clubs in column.findAll('td', 'clubs'):
+		count = count + 1
+		if count <= num:
+			# get fixture in the short name version format
+			fixture = clubs.find('a').contents[0].string
+			fixture = re.sub('^v ', '', fixture)
+			fixture = re.sub(' \(H\)$', '', fixture)
+			fixture = re.sub(' \(A\)$', '', fixture)
+			fixture = fixture.strip()
+
+			# get the current and previous league positions of this fixtures team
+			position = pos(fixture, allteams)
+
+			fixtures.append(fixture + ' | ' + position[0] + ' (' + position[1] + ')')
+	
+	table.add_row(fixtures)
+
+print table
+# end
