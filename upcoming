@@ -13,6 +13,7 @@ import urllib2
 import re
 import datetime
 import sys
+import simplejson as sjson
 
 # ===============================================================
 # functions
@@ -76,32 +77,40 @@ def createTeams():
 
 # ===============================================================
 # check the arguments
-# ===============================================================	
+# ===============================================================
 
 # the program name and the (optional) number of fixtures
-if len(sys.argv) > 2:
+if len(sys.argv) > 3:
 	# stop the program and print an error message
 	print "This only accepts an (optional) number as an argument, to say how many fixtures to show (default 3, max 6)"
-	sys.exit("Example: 'upcoming' or 'upcoming 5'")
+	print "Also optionally takes -json parameter to output as json data"
+	sys.exit("Usage: upcoming <number> -j")
 
 # grab the argument, exit if invalid
-if len(sys.argv) == 2:
+json = False
+if len(sys.argv) == 1:
+	num = 3
+if len(sys.argv) == 2 or len(sys.argv) == 3:
 	num = sys.argv[1]
 	if num.isdigit():
 		num = int(num)
 		if num > 6:
 			num = 6
+		if len(sys.argv) == 3:
+			j = sys.argv[2]
+			if j == '-j':
+				json = True
+			else:
+				sys.exit(sys.argv[2] + " should be -j to switch output format")
 	else:
-		sys.exit("Argument is not a number (positive and 0 decimal places). Should be in the format: 'upcoming' or 'upcoming 5'")
-else:
-	num = 3
+		sys.exit(sys.argv[1] + " is not a number (positive and 0 decimal places)")
 
 # ===============================================================
 # generate
 # ===============================================================
 
 # start generation
-print 'Loading Fixtures ...' 
+print 'Loading Fixtures ...'
 
 # pull out all teams and associated urls
 allteams = createTeams()
@@ -116,7 +125,11 @@ table.align["Team"] = "r"
 table.padding_width = 1
 
 # iterate over the teams
+iteration = 0
+resultsJson = []
 for key, value in allteams.items():
+	iteration = iteration + 1
+
 	# get the page for each team name
 	url = allteams[key][1]
 	teamPage = urllib2.urlopen(url)
@@ -133,6 +146,7 @@ for key, value in allteams.items():
 	column = section.find('div', 'contentRight')
 
 	fixtures = []
+	fixturesJson = []
 	fixtures.append(name) # add the team name
 	count = 0
 	for clubs in column.findAll('td', 'clubs'):
@@ -149,8 +163,26 @@ for key, value in allteams.items():
 			position = pos(fixture, allteams)
 
 			fixtures.append(fixture + ' | ' + position[0] + ' (' + position[1] + ')')
+
+			if json:
+				fixtureJson = {"opponent": fixture, "position": position[0], "previous": position[1], "game": count}
+				fixturesJson.append(fixtureJson)
+
+	if json:
+		resultJson = {"team": name, "position": key, "fixtures": fixturesJson}
+		resultsJson.append(resultJson)
 	
 	table.add_row(fixtures)
 
-print table
+if json:
+	# write to file
+	jsondata = {'results': resultsJson}
+
+  	f = open("data.json","w")
+	sjson.dump(jsondata, f)
+	f.close()
+
+	print 'json data written to data.json'
+else:
+	print table
 # end
