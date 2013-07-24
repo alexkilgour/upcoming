@@ -10,7 +10,7 @@ It's a Python script that uses the [premier league website](http://www.premierle
 
 Requirements
 ------------
-Python, and it's reliant upon [BeautifulSoup](http://www.crummy.com/software/BeautifulSoup/) (version 4) to parse the HTML. If you see the following error:
+Python, and it's reliant upon (amongst other modules) [BeautifulSoup](http://www.crummy.com/software/BeautifulSoup/) (version 4) to parse the HTML. If you see the following error:
 
 	ImportError: No module named BeautifulSoup
 
@@ -39,6 +39,10 @@ This will show the next **3** results for each current team in the EPL
 	$ upcoming 4
 	
 This will show the next **4** results for each current team in the EPL. You can show a maximum of 6 results
+
+	$ upcoming 5 -j
+	
+Adding the -j option outputs the results as json in data.json
 
 Example
 -------
