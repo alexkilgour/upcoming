@@ -169,7 +169,7 @@ for key, value in allteams.items():
 				fixturesJson.append(fixtureJson)
 
 	if json:
-		resultJson = {"team": name, "position": key, "fixtures": fixturesJson}
+		resultJson = {"team": name, "slug": allteams[key][3], "previous": allteams[key][2], "position": key, "fixtures": fixturesJson}
 		resultsJson.append(resultJson)
 	
 	table.add_row(fixtures)
