@@ -1,4 +1,4 @@
-ff-upcoming
+Upcoming
 ===========
 
 Upcoming fixtures for each team in the Premier League, a helper for Fantasy Football.
